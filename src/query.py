@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import cohere
 from groq import Groq
 from supabase import create_client
@@ -15,6 +16,19 @@ GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 
 GROQ_MODEL = "llama-3.1-8b-instant"
 TOP_K = 5
+
+
+def _groq_with_retry(fn, retries=4, base_wait=5):
+    """Call fn(); on Groq 429 rate-limit, wait and retry up to `retries` times."""
+    for attempt in range(retries):
+        try:
+            return fn()
+        except Exception as e:
+            if attempt < retries - 1 and ("429" in str(e) or "rate_limit" in str(e).lower()):
+                wait = base_wait * (attempt + 1)
+                time.sleep(wait)
+                continue
+            raise
 
 
 def _embed_query(query: str, co: cohere.Client) -> list[float]:
@@ -79,10 +93,10 @@ def _generate_answer(query: str, chunks: list[dict], conversation_history: list[
         {"role": "user", "content": user_content},
     ]
 
-    response = groq_client.chat.completions.create(
+    response = _groq_with_retry(lambda: groq_client.chat.completions.create(
         model=GROQ_MODEL,
         messages=messages,
-    )
+    ))
     return response.choices[0].message.content.strip()
 
 
@@ -93,10 +107,10 @@ def _eval_faithfulness(answer: str, chunks: list[dict], groq_client: Groq) -> tu
         "Reply with exactly FAITHFUL or UNFAITHFUL, then one sentence explaining why.\n\n"
         f"Answer: {answer}\n\nChunks: {context_str}"
     )
-    response = groq_client.chat.completions.create(
+    response = _groq_with_retry(lambda: groq_client.chat.completions.create(
         model=GROQ_MODEL,
         messages=[{"role": "user", "content": prompt}],
-    )
+    ))
     text = response.choices[0].message.content.strip()
     score = 1.0 if text.upper().startswith("FAITHFUL") else 0.0
     explanation = text.split("\n", 1)[-1].strip() if "\n" in text else text
@@ -110,10 +124,10 @@ def _eval_context_relevance(query: str, chunks: list[dict], groq_client: Groq) -
         "Reply with just the number, then one sentence explaining why.\n\n"
         f"Question: {query}\n\nChunks: {context_str}"
     )
-    response = groq_client.chat.completions.create(
+    response = _groq_with_retry(lambda: groq_client.chat.completions.create(
         model=GROQ_MODEL,
         messages=[{"role": "user", "content": prompt}],
-    )
+    ))
     text = response.choices[0].message.content.strip()
     match = re.search(r"[1-5]", text)
     return float(match.group()) if match else 3.0
