@@ -227,6 +227,12 @@
     border-radius: 999px;
     transition: width .35s;
   }
+  .metric-bar.faith > span {
+    background: linear-gradient(90deg, #22c55e, #15803d);
+  }
+  .metric-bar.rel > span {
+    background: linear-gradient(90deg, #6366f1, #4338ca);
+  }
   .metric.empty .metric-value { color: var(--ink-5); }
 
   .sidebar-foot {
@@ -810,14 +816,14 @@
             <div class="metric-row-inner">
               <div><span class="metric-value" id="faithVal">—</span><span class="metric-suffix" id="faithSuf"></span></div>
             </div>
-            <div class="metric-bar"><span id="faithBar" style="width:0%"></span></div>
+            <div class="metric-bar faith"><span id="faithBar" style="width:0%"></span></div>
           </div>
           <div class="metric empty" id="metricRel">
             <div class="metric-label">Avg Relevance</div>
             <div class="metric-row-inner">
               <div><span class="metric-value" id="relVal">—</span><span class="metric-suffix" id="relSuf"></span></div>
             </div>
-            <div class="metric-bar"><span id="relBar" style="width:0%"></span></div>
+            <div class="metric-bar rel"><span id="relBar" style="width:0%"></span></div>
           </div>
         </div>
 
@@ -1067,7 +1073,7 @@ function setMetric(elId, valId, sufId, barId, value, suffix = '') {
   const num = Number(value);
   // Detect 0–1 vs 0–5 scales
   let pct;
-  if (num <= 1.0001) { pct = num * 100; v.textContent = num.toFixed(2); }
+  if (num <= 1.0001) { pct = num * 100; v.textContent = Math.round(num * 100) + '%'; }
   else if (num <= 5.0001) { pct = (num / 5) * 100; v.textContent = num.toFixed(1); s.textContent = ' / 5'; return finishBar(b, pct); }
   else { pct = Math.min(100, num); v.textContent = String(Math.round(num)); }
   s.textContent = suffix;
